@@ -3,9 +3,10 @@
 ## Stack
 
 - **Ruby** 3.4.9, **Rails** 8.1, **PostgreSQL** (all environments)
-- **Spree** 5.4+ mounted at `/` — storefront + admin
+- **Spree** 5.4+ (headless API backend, no built-in HTML storefront)
+- **Storefront** at `/wondiers/storefront/` (separate SPA repo, e.g. Next.js/Remix)
 - **Devise** auth for `Spree::User` (customers) and `Spree::AdminUser` (admins)
-- **Hotwire** (Turbo + Stimulus), **importmaps** (no Node/Webpack)
+- **Hotwire** (Turbo + Stimulus), **importmaps** (no Node/Webpack) — used only for admin
 - **Solid Queue / Solid Cache / Solid Cable** — all backed by PostgreSQL
 - **Kamal** for Docker-based deployment
 
@@ -61,7 +62,7 @@ bin/importmap audit         # JS dependency audit
 
 ## Spree customization
 
-- Mounted at root via `mount Spree::Core::Engine, at: '/'` (config/routes.rb)
+- Mounted at root via `mount Spree::Core::Engine, at: '/'` (config/routes.rb) — API + admin only, no HTML storefront
 - Decorators: any `*_decorator*.rb` file under `app/` is auto-loaded
 - Spree config in `config/initializers/spree.rb`
 - Custom models go under `app/models/spree/` (e.g. `Spree::User`, `Spree::AdminUser`)
@@ -75,3 +76,83 @@ bin/importmap audit         # JS dependency audit
 - Dockerfile at root (multi-stage, jemalloc, Thruster)
 - `bin/kamal` alias commands: `console`, `shell`, `logs`, `dbc`
 - Production DB uses separate databases for primary/cache/queue/cable (all PostgreSQL)
+
+## Storefront (headless SPA)
+
+Spree 5 is API-only — no built-in HTML storefront. The storefront lives in a separate repo at `/wondiers/storefront/` and consumes Spree's Storefront API (`/api/v3/store/*`).
+
+### Development
+
+Run the Rails API server (port 3000) and the storefront dev server (port 3001 or similar) side by side:
+
+```sh
+bin/dev                     # Rails API on :3000
+# In another terminal:
+cd /wondiers/storefront && npm run dev   # Storefront SPA
+```
+
+### Deployment
+
+Two separate deployments:
+1. **Backend** — this repo: `bin/kamal deploy`
+2. **Storefront** — deploy via the storefront repo's own pipeline (Vercel, Netlify, Kamal, etc.)
+
+### Configuration
+
+- Set the frontend URL as an allowed origin in Spree for CORS
+- Storefront uses `/api/v3/store/*` for products, cart, checkout, auth
+- Auth flows use Devise tokens / JWT returned by the Spree API
+
+## Branch strategy
+
+```
+feature/*  ──►  staging  ──►  release  ──►  main (deploy 1x/day)
+```
+
+| Branch | Purpose | Deployed |
+|---|---|---|
+| `feature/*` | Individual work, short-lived | Never |
+| `staging` | Experimental / in-progress features being tested | Optional (review app) |
+| `release` | Approved & tested changes, batched for daily release | Nightly → main |
+| `main` | Production | `bin/kamal deploy` (once daily) |
+
+### Workflow
+
+1. Code on `feature/<type>/<description>` branches
+2. Open PR targeting `staging` for testing
+3. Once approved and tested, merge to `release`
+4. At the end of the day, merge `release` → `main` → deploy
+
+## PR guidelines
+
+Use the `pr-format` skill (`.opencode/skills/pr-format/`) for branch naming, commit messages, and PR templates.
+
+Branch format: `<type>/<short-description>` (e.g. `feat/add-discount`, `docs/headless-storefront`)
+Commit format: `<type>: <present-tense description>`
+
+## Lessons learned
+
+### Spree 5 is headless
+
+Spree 5.x removed the HTML storefront (`spree_frontend` gem). This means:
+- The Rails app serves API + admin only
+- The customer-facing store must be built as a separate SPA (Next.js, Remix, etc.)
+- Deploy requires two separate pipelines — one for Rails API, one for the frontend
+
+### Branch protection requires PRs
+
+The repo requires all changes to go through PRs (no direct pushes to `main`). Workflow:
+1. Create a branch locally: `git checkout -b <type>/<description>`
+2. Make changes and commit
+3. Push: `git push origin <branch-name>`
+4. Create PR via `gh pr create` or GitHub UI
+5. Merge after review
+
+### Spree API routes
+
+Storefront API lives under `/api/v3/store/*`:
+- `GET /api/v3/store/products` — list products
+- `POST /api/v3/store/carts` — create cart
+- `POST /api/v3/store/carts/:id/complete` — checkout
+- `POST /api/v3/store/customers` — registration
+- `GET /api/v3/store/customers/me` — current user
