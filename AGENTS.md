@@ -3,9 +3,10 @@
 ## Stack
 
 - **Ruby** 3.4.9, **Rails** 8.1, **PostgreSQL** (all environments)
-- **Spree** 5.4+ mounted at `/` — storefront + admin
+- **Spree** 5.4+ (headless API backend, no built-in HTML storefront)
+- **Storefront** at `/wondiers/storefront/` (separate SPA repo, e.g. Next.js/Remix)
 - **Devise** auth for `Spree::User` (customers) and `Spree::AdminUser` (admins)
-- **Hotwire** (Turbo + Stimulus), **importmaps** (no Node/Webpack)
+- **Hotwire** (Turbo + Stimulus), **importmaps** (no Node/Webpack) — used only for admin
 - **Solid Queue / Solid Cache / Solid Cable** — all backed by PostgreSQL
 - **Kamal** for Docker-based deployment
 
@@ -61,7 +62,7 @@ bin/importmap audit         # JS dependency audit
 
 ## Spree customization
 
-- Mounted at root via `mount Spree::Core::Engine, at: '/'` (config/routes.rb)
+- Mounted at root via `mount Spree::Core::Engine, at: '/'` (config/routes.rb) — API + admin only, no HTML storefront
 - Decorators: any `*_decorator*.rb` file under `app/` is auto-loaded
 - Spree config in `config/initializers/spree.rb`
 - Custom models go under `app/models/spree/` (e.g. `Spree::User`, `Spree::AdminUser`)
@@ -75,3 +76,29 @@ bin/importmap audit         # JS dependency audit
 - Dockerfile at root (multi-stage, jemalloc, Thruster)
 - `bin/kamal` alias commands: `console`, `shell`, `logs`, `dbc`
 - Production DB uses separate databases for primary/cache/queue/cable (all PostgreSQL)
+
+## Storefront (headless SPA)
+
+Spree 5 is API-only — no built-in HTML storefront. The storefront lives in a separate repo at `/wondiers/storefront/` and consumes Spree's Storefront API (`/api/v3/store/*`).
+
+### Development
+
+Run the Rails API server (port 3000) and the storefront dev server (port 3001 or similar) side by side:
+
+```sh
+bin/dev                     # Rails API on :3000
+# In another terminal:
+cd /wondiers/storefront && npm run dev   # Storefront SPA
+```
+
+### Deployment
+
+Two separate deployments:
+1. **Backend** — this repo: `bin/kamal deploy`
+2. **Storefront** — deploy via the storefront repo's own pipeline (Vercel, Netlify, Kamal, etc.)
+
+### Configuration
+
+- Set the frontend URL as an allowed origin in Spree for CORS
+- Storefront uses `/api/v3/store/*` for products, cart, checkout, auth
+- Auth flows use Devise tokens / JWT returned by the Spree API
