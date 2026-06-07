@@ -102,3 +102,57 @@ Two separate deployments:
 - Set the frontend URL as an allowed origin in Spree for CORS
 - Storefront uses `/api/v3/store/*` for products, cart, checkout, auth
 - Auth flows use Devise tokens / JWT returned by the Spree API
+
+## Branch strategy
+
+```
+feature/*  ──►  staging  ──►  pending  ──►  main (deploy 1x/day)
+```
+
+| Branch | Purpose | Deployed |
+|---|---|---|
+| `feature/*` | Individual work, short-lived | Never |
+| `staging` | Experimental / in-progress features being tested | Optional (review app) |
+| `pending` | Approved & tested changes, batched for daily release | Nightly → main |
+| `main` | Production | `bin/kamal deploy` (once daily) |
+
+### Workflow
+
+1. Code on `feature/<type>/<description>` branches
+2. Open PR targeting `staging` for testing
+3. Once approved and tested, merge to `pending`
+4. At the end of the day, merge `pending` → `main` → deploy
+
+## PR guidelines
+
+Use the `pr-format` skill (`.opencode/skills/pr-format/`) for branch naming, commit messages, and PR templates.
+
+Branch format: `<type>/<short-description>` (e.g. `feat/add-discount`, `docs/headless-storefront`)
+Commit format: `<type>: <present-tense description>`
+
+## Lessons learned
+
+### Spree 5 is headless
+
+Spree 5.x removed the HTML storefront (`spree_frontend` gem). This means:
+- The Rails app serves API + admin only
+- The customer-facing store must be built as a separate SPA (Next.js, Remix, etc.)
+- Deploy requires two separate pipelines — one for Rails API, one for the frontend
+
+### Branch protection requires PRs
+
+The repo requires all changes to go through PRs (no direct pushes to `main`). Workflow:
+1. Create a branch locally: `git checkout -b <type>/<description>`
+2. Make changes and commit
+3. Push: `git push origin <branch-name>`
+4. Create PR via `gh pr create` or GitHub UI
+5. Merge after review
+
+### Spree API routes
+
+Storefront API lives under `/api/v3/store/*`:
+- `GET /api/v3/store/products` — list products
+- `POST /api/v3/store/carts` — create cart
+- `POST /api/v3/store/carts/:id/complete` — checkout
+- `POST /api/v3/store/customers` — registration
+- `GET /api/v3/store/customers/me` — current user
