@@ -1,24 +1,26 @@
-# README
+# Wondiers Store
 
-This README would normally document whatever steps are necessary to get the
-application up and running.
+DTF and clothing e-commerce store built with Ruby on Rails 8.1 and Spree 5.4+.
 
-Things you may want to cover:
+## Stack
 
-* Ruby version
+- **Ruby** 3.4.9, **Rails** 8.1, **PostgreSQL**
+- **Spree** — full-featured e-commerce engine
+- **Devise** — authentication for customers and admins
+- **Hotwire** (Turbo + Stimulus), importmaps
+- **Solid Queue / Solid Cache / Solid Cable** — all backed by PostgreSQL
+- **Kamal** — Docker-based deployment
 
-* System dependencies
+## Setup
 
-* Configuration
+```sh
+bin/setup
+bin/dev
+```
 
-* Database creation
+## Testing
 
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
+```sh
+bin/rails test
+bin/rails test:system
+```
