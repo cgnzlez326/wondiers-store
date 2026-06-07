@@ -106,22 +106,22 @@ Two separate deployments:
 ## Branch strategy
 
 ```
-feature/*  ──►  staging  ──►  pending  ──►  main (deploy 1x/day)
+feature/*  ──►  staging  ──►  release  ──►  main (deploy 1x/day)
 ```
 
 | Branch | Purpose | Deployed |
 |---|---|---|
 | `feature/*` | Individual work, short-lived | Never |
 | `staging` | Experimental / in-progress features being tested | Optional (review app) |
-| `pending` | Approved & tested changes, batched for daily release | Nightly → main |
+| `release` | Approved & tested changes, batched for daily release | Nightly → main |
 | `main` | Production | `bin/kamal deploy` (once daily) |
 
 ### Workflow
 
 1. Code on `feature/<type>/<description>` branches
 2. Open PR targeting `staging` for testing
-3. Once approved and tested, merge to `pending`
-4. At the end of the day, merge `pending` → `main` → deploy
+3. Once approved and tested, merge to `release`
+4. At the end of the day, merge `release` → `main` → deploy
 
 ## PR guidelines
 

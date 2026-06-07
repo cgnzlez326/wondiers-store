@@ -40,12 +40,12 @@ Include:
 | Source → Target | When |
 |---|---|
 | `feature/*` → `staging` | New feature or fix, needs testing |
-| `staging` → `pending` | Approved & tested, batched for daily release |
-| `pending` → `main` | End-of-day production deploy |
+| `staging` → `release` | Approved & tested, batched for daily release |
+| `release` → `main` | End-of-day production deploy |
 
 ## PR checklist
 
 - [ ] `bin/rubocop` passes (no new offenses)
 - [ ] `bin/rails test` passes (if tests relevant)
 - [ ] Only intended files are committed (no build artifacts, secrets, etc.)
-- [ ] Branch is pushed with correct target (`staging` for features, `pending` for batched)
+- [ ] Branch is pushed with correct target (`staging` for features, `release` for batched)
