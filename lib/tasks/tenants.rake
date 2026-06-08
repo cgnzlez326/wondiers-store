@@ -36,7 +36,7 @@ namespace :tenants do
     end
   end
 
-  desc "Drop a tenant schema and delete its record"
+  desc "Drop a tenant schema and delete its record — REQUIRES CONFIRMATION"
   task :drop, [ :domain ] => :environment do |_t, args|
     domain = args[:domain]
 
@@ -46,6 +46,27 @@ namespace :tenants do
     end
 
     tenant = Tenant.find_by!(domain: domain)
+
+    puts ""
+    puts "╔══════════════════════════════════════════════════════════════╗"
+    puts "║  DESTRUCTIVE COMMAND — THIS CANNOT BE UNDONE                 ║"
+    puts "╠══════════════════════════════════════════════════════════════╣"
+    puts "║  Tenant : #{tenant.name.ljust(52)}║"
+    puts "║  Domain : #{tenant.domain.ljust(52)}║"
+    puts "║  Schema : #{tenant.schema_name.ljust(52)}║"
+    puts "║  Status : #{tenant.status.to_s.ljust(52)}║"
+    puts "╠══════════════════════════════════════════════════════════════╣"
+    puts "║  ALL data for this tenant will be permanently destroyed:     ║"
+    puts "║  products, orders, customers, inventory, payments, etc.      ║"
+    puts "╚══════════════════════════════════════════════════════════════╝"
+    puts ""
+    print "Type the domain '#{tenant.domain}' to confirm: "
+    confirm = $stdin.gets.chomp
+
+    unless confirm == tenant.domain
+      puts "Confirmation did not match. Aborted."
+      exit 1
+    end
 
     # Drop the PostgreSQL schema
     Apartment::Tenant.drop(tenant.schema_name)
