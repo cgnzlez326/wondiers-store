@@ -22,7 +22,7 @@ echo "Running RuboCop on staged Ruby files..."
 
 # Check only (no auto-correct) — commit is aborted if offenses exist.
 # Replace -a with -A to auto-correct, or -a for safe autocorrect.
-bundle exec rubocop -a --force-exclusion $STAGED_RUBY_FILES
+bundle exec rubocop -c --force-exclusion $STAGED_RUBY_FILES
 
 STATUS=$?
 
