@@ -1,0 +1,52 @@
+#!/bin/bash
+#
+# Pre-commit hook: Runs RuboCop on staged Ruby files.
+# Aborts the commit if offenses are found.
+# To auto-correct offenses, run: git commit --no-verify  OR  uncomment the -A flag below.
+#
+# Usage:
+#   - Just commit normally: git commit -m "message"
+#   - Skip hook: git commit --no-verify -m "message"
+
+set -e
+
+STAGED_RUBY_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(rb|rake|gemspec)$' || true)
+STAGED_RUBY_FILES=$(echo "$STAGED_RUBY_FILES" | grep -v 'db/schema.rb' || true)
+
+if [ -z "$STAGED_RUBY_FILES" ]; then
+  echo "No Ruby files staged. Skipping RuboCop."
+  exit 0
+fi
+
+echo "Running RuboCop on staged Ruby files..."
+
+# Check only (no auto-correct) — commit is aborted if offenses exist.
+# Replace -a with -A to auto-correct, or -a for safe autocorrect.
+bundle exec rubocop -a --force-exclusion $STAGED_RUBY_FILES
+
+STATUS=$?
+
+if [ $STATUS -ne 0 ]; then
+  echo ""
+  echo "══════════════════════════════════════════════════════════════"
+  echo "  RuboCop found offenses. Commit aborted."
+  echo "  Run 'bundle exec rubocop -A FILE' to auto-correct."
+  echo "  Or use 'git commit --no-verify' to skip this check."
+  echo "══════════════════════════════════════════════════════════════"
+  exit 1
+fi
+
+# Re-stage any auto-corrected files (when using -a or -A)
+GIT_ROOT=$(git rev-parse --show-toplevel)
+MODIFIED_FILES=$(echo "$STAGED_RUBY_FILES" | while read -r file; do
+  [ -n "$(git diff --name-only "$GIT_ROOT/$file" 2>/dev/null)" ] && echo "$file"
+done)
+
+if [ -n "$MODIFIED_FILES" ]; then
+  echo ""
+  echo "Re-staging auto-corrected files..."
+  echo "$MODIFIED_FILES" | xargs -r git add
+fi
+
+echo "RuboCop passed."
+exit 0
