@@ -77,6 +77,19 @@ bin/importmap audit         # JS dependency audit
 - `bin/kamal` alias commands: `console`, `shell`, `logs`, `dbc`
 - Production DB uses separate databases for primary/cache/queue/cable (all PostgreSQL)
 
+## Multi-tenant architecture
+
+- **Schema-per-tenant** via the [Apartment](https://github.com/rails-on-services/apartment) gem — each tenant gets its own PostgreSQL schema with a full set of Spree tables
+- **Domain-based tenant resolution** — the tenant is resolved from the request:
+  1. `X-Tenant` HTTP header (sent by the Next.js storefront)
+  2. Request domain (e.g. `wondiers.com` → schema `wondiers`)
+- **Tenants table** lives in the `public` (shared) schema — it is excluded from tenant isolation via `config.excluded_models`
+- **Rake tasks for onboarding** (`lib/tasks/tenants.rake`):
+  - `rails tenants:create['Name','domain.com']` — creates Tenant record, PostgreSQL schema, runs migrations, and seeds Spree data
+  - `rails tenants:list` — displays all registered tenants
+  - `rails tenants:drop['domain.com']` — drops the tenant schema and deletes the Tenant record
+- **Next.js storefront** passes the `X-Tenant` header to tell the Rails API which tenant to scope queries to
+- **Solid adapters** (cache/queue/cable) configuration for per-tenant isolation is a follow-up task — currently all tenants share the same Solid databases
 ## Storefront (headless SPA)
 
 Spree 5 is API-only — no built-in HTML storefront. The storefront lives in a separate repo at `/wondiers/storefront/` and consumes Spree's Storefront API (`/api/v3/store/*`).
