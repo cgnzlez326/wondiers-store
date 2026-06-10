@@ -26,6 +26,59 @@ bin/dev                 # foreman start via Procfile.dev (admin CSS watch + rail
 | `bin/rails db:migrate` | Migrate dev DB |
 | `bin/dev` | Foreman: admin CSS watcher + server (use this) |
 
+## Git commits — GPG signing required
+
+This repo enforces GPG-signed commits. `git config commit.gpgsign` is `true`.
+
+- **NEVER use `--no-gpg-sign`** to bypass signing. If GPG fails, ask the user for their passphrase and retry the commit with signing enabled.
+- If the user is not available to provide the passphrase, do NOT commit — wait or stage the changes for later.
+
+## Destructive Commands — DO NOT RUN
+
+Every command listed below can irreversibly destroy data, schemas, or infrastructure. **None of these commands should be used unless explicitly approved by a senior team member.**
+
+### :red Prohibited (irreversible data loss)
+
+| Command | Effect |
+|---|---|
+| `rails db:drop` | Drops all PostgreSQL databases (primary, cache, queue, cable). |
+| `rails db:reset` | Drops and recreates databases from schema, then seeds. |
+| `rails db:migrate:reset` | Drops all tables and re-runs every migration. |
+| `rails db:schema:load` | Drops all tables and recreates from `db/schema.rb`. |
+| `rails db:seed:replant` | Truncates ALL tables and reloads seeds. |
+| `rails apartment:rollback` | Rolls back migrations across ALL tenant schemas. |
+| `rails apartment:migrate:down VERSION=...` | Runs "down" migration across ALL tenant schemas. |
+| `rails apartment:migrate:redo` | Rolls back and re-migrates across ALL tenant schemas. |
+| `kamal remove` | Removes ALL Docker containers and images from production. |
+| `kamal app remove` | Removes app containers and images from production. |
+
+### :yellow Dangerous (downtime or data risk)
+
+| Command | Risk |
+|---|---|
+| `rails db:rollback` | Reverses last N migrations. Prefer writing a fix migration. |
+| `rails db:migrate:down VERSION=...` | Reverses a specific migration. |
+| `rails db:fixtures:load` | Loads fixture data into the database (may overwrite). |
+| `rails apartment:seed` | Seeds ALL tenant schemas (may duplicate/overwrite). |
+| `kamal app stop` | Takes app offline on all servers. |
+| `kamal rollback [VERSION]` | Rolls back app code (DB unchanged — may mismatch). |
+| `kamal prune all` | Removes unused Docker images and stopped containers. |
+| `rails spree:load_sample_data` | Loads sample data (never in production). |
+| `rails log:clear` | Truncates all log files. |
+| `rails assets:clobber` | Deletes compiled assets directory. |
+| `bin/docker-entrypoint` | Runs `db:prepare` on every production container start. |
+
+### Recurring destructive jobs
+
+| Job | Schedule | Effect |
+|---|---|---|
+| `SolidQueue::Job.clear_finished_in_batches` | Every hour at :12 | Permanently deletes finished job records. |
+
+### :blue Guarded (confirmation required)
+
+- `rails tenants:drop['domain.com']` — must type the domain to confirm before destroying the schema.
+- `bin/setup --reset` — requires explicit `--reset` flag to trigger `db:reset`.
+
 ## Testing
 
 ```sh
@@ -77,6 +130,19 @@ bin/importmap audit         # JS dependency audit
 - `bin/kamal` alias commands: `console`, `shell`, `logs`, `dbc`
 - Production DB uses separate databases for primary/cache/queue/cable (all PostgreSQL)
 
+## Multi-tenant architecture
+
+- **Schema-per-tenant** via the [Apartment](https://github.com/rails-on-services/apartment) gem — each tenant gets its own PostgreSQL schema with a full set of Spree tables
+- **Domain-based tenant resolution** — the tenant is resolved from the request:
+  1. `X-Tenant` HTTP header (sent by the Next.js storefront)
+  2. Request domain (e.g. `wondiers.com` → schema `wondiers`)
+- **Tenants table** lives in the `public` (shared) schema — it is excluded from tenant isolation via `config.excluded_models`
+- **Rake tasks for onboarding** (`lib/tasks/tenants.rake`):
+  - `rails tenants:create['Name','domain.com']` — creates Tenant record, PostgreSQL schema, runs migrations, and seeds Spree data
+  - `rails tenants:list` — displays all registered tenants
+  - `rails tenants:drop['domain.com']` — **DESTRUCTIVE** — drops the tenant schema and deletes the Tenant record. Requires typing the domain to confirm.
+- **Next.js storefront** passes the `X-Tenant` header to tell the Rails API which tenant to scope queries to
+- **Solid adapters** (cache/queue/cable) configuration for per-tenant isolation is a follow-up task — currently all tenants share the same Solid databases
 ## Storefront (headless SPA)
 
 Spree 5 is API-only — no built-in HTML storefront. The storefront lives in a separate repo at `/wondiers/storefront/` and consumes Spree's Storefront API (`/api/v3/store/*`).

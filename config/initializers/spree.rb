@@ -30,9 +30,13 @@ end
 # Default is nil and your application host will be used
 # Spree.cdn_host = 'cdn.example.com'
 
-# Multi-store setup
-# You need to set a wildcard `root_domain` on the store to enable multi-store setup
-# all new stores will be created in a subdomain of the root domain, eg. store1.lvh.me, store2.lvh.me, etc.
+# Multi-store / Multi-tenant setup
+# Spree's built-in multi-store (root_domain) is NOT used.
+# Instead, multi-tenant isolation is handled at the PostgreSQL schema level
+# by the Apartment gem (see config/initializers/apartment.rb).
+# Each tenant gets its own schema with a full set of Spree tables.
+# Keep Spree.root_domain disabled — Apartment manages tenant switching.
+#
 # Spree.root_domain = ENV.fetch('SPREE_ROOT_DOMAIN', 'lvh.me')
 
 # Use a different service for storage (S3, google, etc)
@@ -87,8 +91,8 @@ Rails.application.config.after_initialize do
   # Role-based permissions
   # Configure which permission sets are assigned to each role
   # More on permission sets: https://spreecommerce.org/docs/developer/customization/permissions
-  Spree.permissions.assign(:default, [Spree::PermissionSets::DefaultCustomer])
-  Spree.permissions.assign(:admin, [Spree::PermissionSets::SuperUser])
+  Spree.permissions.assign(:default, [ Spree::PermissionSets::DefaultCustomer ])
+  Spree.permissions.assign(:admin, [ Spree::PermissionSets::SuperUser ])
 
   # Example: Create a custom role with specific permissions
   # Spree.permissions.assign(:customer_service, [
@@ -137,7 +141,7 @@ Spree.user_class = "Spree::User"
 Spree.admin_user_class = "Spree::AdminUser"
 
             Rails.application.config.to_prepare do
-              require_dependency 'spree/authentication_helpers'
+              require_dependency "spree/authentication_helpers"
             end
 
             if defined?(Devise) && Devise.respond_to?(:parent_controller)
